@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request,redirect
+from flask import Flask, render_template, request,redirect,flash
 import mysql.connector
 
 app = Flask(__name__)
 
-
+app.secret_key='Dont tell'
 
 conn = mysql.connector.connect(
         host="localhost",
@@ -30,18 +30,26 @@ def sign_in():
 
 @app.route('/register', methods=['POST'])
 def registration():
+    uname = request.form.get('uname')
+    passwrd = request.form.get('passwrd')
+    
+    cursor = conn.cursor()
 
-    uname=request.form.get('uname')
-    passwrd=request.form.get('passwrd')
-    cursor=conn.cursor()
-    cursor.execute("Insert into login_details values(%s,%s)",(uname,passwrd))
-    cursor.execute("SELECT * FROM login_details WHERE Name LIKE %s AND Password LIKE %s", (uname, passwrd))
-    users = cursor.fetchall()
-    if len(users)>0:
-        return redirect('/')
-    else:    
-        conn.commit()
-        return redirect('/home')
+    cursor.execute("SELECT * FROM login_details WHERE Name = %s", (uname,))
+    existing_user = cursor.fetchone()
+    
+    if existing_user:
+        flash('User Already Exist')
+        cursor.close()
+        return redirect('/') 
+        
+    cursor.execute("INSERT INTO login_details (Name, Password) VALUES (%s, %s)", (uname, passwrd))
+    conn.commit()
+    cursor.close()
+    
+    return redirect('/home') 
+
+
 
 @app.route('/login_validation', methods=['POST'])
 def login_validation():
@@ -51,10 +59,12 @@ def login_validation():
 
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM login_details WHERE Name LIKE %s AND Password LIKE %s", (username, password))
-    users = cursor.fetchall()
+    users = cursor.fetchone()
     if len(users)>0:
+
         return redirect('/home')
     else:    
+        flash('Login Failed')
         return redirect('/')
 
 if __name__ == '__main__':
